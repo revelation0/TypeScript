@@ -12929,7 +12929,7 @@ namespace ts {
 
             let baseTypeNode = getClassExtendsHeritageClauseElement(node);
             if (baseTypeNode) {
-                emitExtends = emitExtends || !isInAmbientContext(node);
+                emitExtends = emitExtends || (!isInAmbientContext(node) && !(compilerOptions.module == ModuleKind.ExtJS));
                 let baseTypes = getBaseTypes(type);
                 if (baseTypes.length && produceDiagnostics) {
                     let baseType = baseTypes[0];

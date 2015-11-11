@@ -2104,6 +2104,7 @@ namespace ts {
         System = 4,
         ES6 = 5,
         ES2015 = ES6,
+        ExtJS = 99,
     }
 
     export const enum JsxEmit {
