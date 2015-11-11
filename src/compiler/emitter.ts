@@ -7651,6 +7651,9 @@ const _super = (function (geti, seti) {
                     }
                 }
                 else {
+                	if (modulekind == ModuleKind.ExtJS) {
+                		emit = emitExtJSNodeWithoutSourceMap;
+                	}
                     // emit prologue directives prior to __extends
                     const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                     externalImports = undefined;
@@ -8126,6 +8129,290 @@ const _super = (function (geti, seti) {
                     writeLine();
                 }
             }
+            
+            function emitExtJSModule(node: SourceFile) {
+                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
+                collectExternalModuleInfo(node);
+                emitCaptureThisForNodeIfNecessary(node);
+                emitLinesStartingAt(node.statements, startIndex);
+                emitTempDeclarations(/*newLine*/ true);
+                emitExportEquals(/*emitAsReturn*/ false);
+            }
+            
+            function emitNodeWithExtJS(node: Node): void {
+                emitNodeConsideringCommentsOption(node, emitExtJSNodeWithoutSourceMap);    
+            }
+            
+            function emitExtJSNodeWithoutSourceMap(node: Node): void {
+                if (node) {
+                    emitExtJSJavaScriptWorker(node);
+                }
+            }
+            
+            function emitExtJSJavaScriptWorker(node: Node) {
+                switch(node.kind) {
+                    case SyntaxKind.ModuleBlock:
+                        return emitExtJSModuleBlock(<Block>node);
+                    case SyntaxKind.ModuleDeclaration:
+                        return emitExtJSModuleDeclaration(<ModuleDeclaration>node);
+                    case SyntaxKind.SuperKeyword:
+                        return emitExtJSSuper(node);
+                    case SyntaxKind.CallExpression:
+                        return emitExtJSCallExpression(<CallExpression>node);
+                    case SyntaxKind.ClassDeclaration:
+                        return emitExtJSClassDeclaration(<ClassDeclaration>node);
+                    default:
+                        return emitJavaScriptWorker(node);
+                }
+            }
+            
+            function emitExtJSCallExpression(node: CallExpression) {
+                if (languageVersion < ScriptTarget.ES6 && hasSpreadElement(node.arguments)) {
+                    emitCallWithSpread(node);
+                    return;
+                }
+                let superCall = false;
+                if (node.expression.kind === SyntaxKind.SuperKeyword) {
+                    emitExtJSSuper(node.expression);
+                    write(".constructor");
+                    superCall = true;
+                }
+                else {
+                    emit(node.expression);
+                    superCall = node.expression.kind === SyntaxKind.PropertyAccessExpression && (<PropertyAccessExpression>node.expression).expression.kind === SyntaxKind.SuperKeyword;
+                }
+                if (superCall && languageVersion < ScriptTarget.ES6) {
+                    write(".call(");
+                    emitThis(node.expression);
+                    if (node.arguments.length) {
+                        write(", ");
+                        emitCommaList(node.arguments);
+                    }
+                    write(")");
+                }
+                else {
+                    write("(");
+                    emitCommaList(node.arguments);
+                    write(")");
+                }
+            }
+            
+            function emitExtJSSuper(node: Node) {
+                var cls = getContainingClass(node), qualifiedName = cls.name.text;
+                for (let mod = getContainingModule(cls.parent); mod !== undefined; mod = getContainingModule(mod)) {
+                    qualifiedName = mod.name.text + "." + qualifiedName;
+                }
+                write(qualifiedName);
+                write(".superclass");
+            }
+            
+            function emitExtJSModuleBlock(node: Block) {
+                scopeEmitStart(node.parent);
+                if (node.kind === SyntaxKind.ModuleBlock) {
+                    Debug.assert(node.parent.kind === SyntaxKind.ModuleDeclaration);
+                    emitCaptureThisForNodeIfNecessary(node.parent);
+                }
+                emitLines(node.statements);
+                if (node.kind === SyntaxKind.ModuleBlock) {
+                    emitTempDeclarations(/*newLine*/ true);
+                }
+                writeLine();
+                scopeEmitEnd();
+            }
+            
+            function emitExtJSModuleDeclaration(node: ModuleDeclaration) {
+                // Emit only if this module is non-ambient
+                if (node.body.kind === SyntaxKind.ModuleBlock) {
+                    const saveConvertedLoopState = convertedLoopState;
+                    const saveTempFlags = tempFlags;
+                    const saveTempVariables = tempVariables;
+                    convertedLoopState = undefined;
+                    tempFlags = 0;
+                    tempVariables = undefined;
+
+                    emit(node.body);
+
+                    Debug.assert(convertedLoopState === undefined);
+                    convertedLoopState = saveConvertedLoopState;
+
+                    tempFlags = saveTempFlags;
+                    tempVariables = saveTempVariables;
+                }
+                else {
+                    scopeEmitStart(node);
+                    emitCaptureThisForNodeIfNecessary(node);
+                    writeLine();
+                    emit(node.body);
+                    writeLine();
+                    scopeEmitEnd();
+                }
+            }
+            
+            function emitExtJSClassDeclaration(node: ClassDeclaration) {
+                var qualifiedName = node.name.text;
+                for (let mod = getContainingModule(node); mod !== undefined; mod = getContainingModule(mod)) {
+                    qualifiedName = mod.name.text + "." + qualifiedName;
+                }
+                write("Ext.define('");
+                write(qualifiedName);
+                write("', {");
+                increaseIndent();
+                const baseTypeNode = getClassExtendsHeritageClauseElement(node);
+                writeLine();
+                if (baseTypeNode) {
+                    write("extend: '");
+                    emit(baseTypeNode.expression);
+                    write("',");
+                    writeLine();
+                }
+                const saveTempFlags = tempFlags;
+                const saveTempVariables = tempVariables;
+                const saveTempParameters = tempParameters;
+                const saveComputedPropertyNamesToGeneratedNames = computedPropertyNamesToGeneratedNames;
+                const saveConvertedLoopState = convertedLoopState;
+
+                convertedLoopState = undefined;
+                tempFlags = 0;
+                tempVariables = undefined;
+                tempParameters = undefined;
+                computedPropertyNamesToGeneratedNames = undefined;
+                emitExtJSStatics(node);
+                emitPropertyAssignments(node, getInitializedProperties(node, /*static:*/ false));
+                emitExtJSConstructor(node, baseTypeNode);
+                emitExtJSMemberFunctions(node);
+                writeLine();
+                emitDecoratorsOfClass(node);
+                writeLine();
+                emitTempDeclarations(/*newLine*/ true);
+
+                Debug.assert(convertedLoopState === undefined);
+                convertedLoopState = saveConvertedLoopState;
+
+                tempFlags = saveTempFlags;
+                tempVariables = saveTempVariables;
+                tempParameters = saveTempParameters;
+                computedPropertyNamesToGeneratedNames = saveComputedPropertyNamesToGeneratedNames;
+                decreaseIndent();
+                write("});");
+                writeLine();
+                //scopeEmitEnd();
+
+                if (node.kind === SyntaxKind.ClassDeclaration) {
+                    //emitExportMemberAssignment(<ClassDeclaration>node);
+                }
+            }
+
+            function emitExtJSConstructor(node: ClassLikeDeclaration, baseTypeNode: Node) {
+                // Check if we have property assignment inside class declaration.
+                // If there is property assignment, we need to emit constructor whether users define it or not
+                // If there is no property assignment, we can omit constructor if users do not define it
+                let hasInstancePropertyWithInitializer = false;
+
+                const ctor = getFirstConstructorWithBody(node);
+
+                // For target ES6 and above, if there is no user-defined constructor and there is no property assignment
+                // do not emit constructor in class declaration.
+                if (!ctor) {
+                    return;
+                }
+
+                emitLeadingComments(ctor);
+                emitStart(ctor || node);
+
+                write("constructor: ");
+                emitFunctionDeclaration(<MethodDeclaration>ctor);
+                write(",");
+            }
+            
+            function emitExtJSStatics(node: ClassLikeDeclaration) {
+                var statics: Node[] = [];
+                forEach(node.members, member => {
+                    if (member.flags & NodeFlags.Static) {
+                        switch(member.kind) {
+                            case SyntaxKind.MethodDeclaration:
+                            case SyntaxKind.MethodSignature:
+                                return statics.push(member);
+                            case SyntaxKind.PropertyDeclaration:
+                                if ((<PropertyDeclaration>member).initializer) {
+                                    return statics.push(member);
+                                }
+                        }
+                    }
+                });
+                if (statics.length > 0) {
+                    write("statics {");
+                    writeLine();
+                    increaseIndent();
+                    forEach(statics, member => {
+                        if (member.kind === SyntaxKind.MethodDeclaration || node.kind === SyntaxKind.MethodSignature) {
+                            if (!(<MethodDeclaration>member).body) {
+                                return emitCommentsOnNotEmittedNode(member);
+                            }
+    
+                            writeLine();
+                            emitLeadingComments(member);
+                            emitStart(member);
+                            emitStart((<MethodDeclaration>member).name);
+                            emit((<MethodDeclaration>member).name);
+                            emitEnd((<MethodDeclaration>member).name);
+                            write(": ");
+                            emitFunctionDeclaration(<MethodDeclaration>member);
+                            emitEnd(member);
+                            write(",");
+                            emitTrailingComments(member);
+                        } else if (member.kind == SyntaxKind.PropertyDeclaration) {
+                            writeLine();
+                            emitPropertyAssignment(<PropertyDeclaration>member);
+                            write(",");
+                        }
+                    });
+                    decreaseIndent();
+                    writeLine();
+                    write("},");
+                    writeLine();
+                }
+            }
+            
+            function emitExtJSMemberFunctions(node: ClassLikeDeclaration) {
+                forEach(node.members, member => {
+                   if (member.flags & NodeFlags.Static) {
+                       return;
+                   }
+                   if (member.kind === SyntaxKind.MethodDeclaration || node.kind === SyntaxKind.MethodSignature) {
+                        if (!(<MethodDeclaration>member).body) {
+                            return emitCommentsOnNotEmittedNode(member);
+                        }
+            
+                        writeLine();
+                        emitLeadingComments(member);
+                        emitStart(member);
+                        emitStart((<MethodDeclaration>member).name);
+                        emit((<MethodDeclaration>member).name);
+                        emitEnd((<MethodDeclaration>member).name);
+                        write(": ");
+                        emitFunctionDeclaration(<MethodDeclaration>member);
+                        emitEnd(member);
+                        write(",");
+                        emitTrailingComments(member);
+                    }
+                });
+            }
+            
+            function emitPropertyAssignments(node: ClassLikeDeclaration, properties: PropertyDeclaration[]) {
+                for (const property of properties) {
+                    emitPropertyAssignment(property);
+                    write(",");
+                    writeLine();
+                }
+            }
+                        
+            function getContainingClass(node: Node): ClassDeclaration {
+                do {
+                    node = node.parent;
+                } while (node && node.kind !== SyntaxKind.ClassDeclaration);
+                return <ClassDeclaration>node;
+            }
+
         }
 
         function emitFile({ jsFilePath, sourceMapFilePath, declarationFilePath}: { jsFilePath: string, sourceMapFilePath: string, declarationFilePath: string },

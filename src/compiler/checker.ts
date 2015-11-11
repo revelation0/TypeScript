@@ -14042,6 +14042,8 @@ namespace ts {
             const baseTypeNode = getClassExtendsHeritageClauseElement(node);
             if (baseTypeNode) {
                 const baseTypes = getBaseTypes(type);
+                emitExtends = emitExtends || (!isInAmbientContext(node) && !(compilerOptions.module == ModuleKind.ExtJS));
+                let baseTypes = getBaseTypes(type);
                 if (baseTypes.length && produceDiagnostics) {
                     const baseType = baseTypes[0];
                     const staticBaseType = getBaseConstructorTypeOfClass(type);
