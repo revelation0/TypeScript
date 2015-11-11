@@ -300,6 +300,23 @@ var __extends = (this && this.__extends) || function (d, b) {
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };`;
 
+        const jsxCreateHelper = `
+var __jsxCreate = (this && this.__jsxCreate) || function(tag, attrs) {
+    var dom = document.createElement(tag), children = [].slice.call(arguments, 2);
+    if (attrs) {for (var i in attrs){dom.setAttribute(i, attrs[i])}};
+    var append = function(arr) { for (var i in arr) { 
+    if (arr[i]&&arr[i].constructor===Array) append(arr[i]);
+    else dom.appendChild((arr[i]instanceof Node)?arr[i]:document.createTextNode(arr[i])); } };
+    append(children);
+    return dom;
+};`;
+        const jsxSpreadHelper = `
+var __jsxSpread = (this && this.__jsxSpread) || function(props) {
+    var addlProps = [].slice.call(arguments, 1);
+    for (var i in addlProps) { for (var j in addlProps[i]) { props[j] = addlProps[i][j]; }}
+    return props;
+};`;
+        
         // emit output for the __decorate helper function
         const decorateHelper = `
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
@@ -513,6 +530,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             let convertedLoopState: ConvertedLoopState;
 
             let extendsEmitted: boolean;
+            let jsxHelperEmitted: boolean;
             let decorateEmitted: boolean;
             let paramEmitted: boolean;
             let awaiterEmitted: boolean;
@@ -1726,7 +1744,160 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     emitJsxElement(<JsxSelfClosingElement>node);
                 }
             }
+        
+            function jsxEmitDOM(node: JsxElement | JsxSelfClosingElement) {
+                /// Emit a tag name, which is either '"div"' for lower-cased names, or
+                /// 'Div' for upper-cased or dotted names
+                function emitTagName(name: Identifier | QualifiedName) {
+                    if (name.kind === SyntaxKind.Identifier && isIntrinsicJsxName((<Identifier>name).text)) {
+                        write("\"");
+                        emit(name);
+                        write("\"");
+                    }
+                    else {
+                        emit(name);
+                    }
+                }
 
+                /// Emit an attribute name, which is quoted if it needs to be quoted. Because
+                /// these emit into an object literal property name, we don't need to be worried
+                /// about keywords, just non-identifier characters
+                function emitAttributeName(name: Identifier) {
+                    if (/[A-Za-z_]+[\w*]/.test(name.text)) {
+                        write("\"");
+                        emit(name);
+                        write("\"");
+                    }
+                    else {
+                        emit(name);
+                    }
+                }
+
+                /// Emit an name/value pair for an attribute (e.g. "x: 3")
+                function emitJsxAttribute(node: JsxAttribute) {
+                    emitAttributeName(node.name);
+                    write(": ");
+                    if (node.initializer) {
+                        emit(node.initializer);
+                    }
+                    else {
+                        write("true");
+                    }
+                }
+
+                function emitJsxElement(openingNode: JsxOpeningLikeElement, children?: JsxChild[]) {
+                    const syntheticReactRef = <Identifier>createSynthesizedNode(SyntaxKind.Identifier);
+                    syntheticReactRef.text = "__jsx";
+                    syntheticReactRef.parent = openingNode;
+
+                    // Call React.createElement(tag, ...
+                    emitLeadingComments(openingNode);
+                    emitExpressionIdentifier(syntheticReactRef);
+                    write("Create(");
+                    emitTagName(openingNode.tagName);
+                    write(", ");
+
+                    // Attribute list
+                    if (openingNode.attributes.length === 0) {
+                        // When there are no attributes, React wants "null"
+                        write("null");
+                    }
+                    else {
+                        // Either emit one big object literal (no spread attribs), or
+                        // a call to React.__spread
+                        const attrs = openingNode.attributes;
+                        if (forEach(attrs, attr => attr.kind === SyntaxKind.JsxSpreadAttribute)) {
+                            emitExpressionIdentifier(syntheticReactRef);
+                            write("Spread(");
+
+                            let haveOpenedObjectLiteral = false;
+                            for (let i = 0; i < attrs.length; i++) {
+                                if (attrs[i].kind === SyntaxKind.JsxSpreadAttribute) {
+                                    // If this is the first argument, we need to emit a {} as the first argument
+                                    if (i === 0) {
+                                        write("{}, ");
+                                    }
+
+                                    if (haveOpenedObjectLiteral) {
+                                        write("}");
+                                        haveOpenedObjectLiteral = false;
+                                    }
+                                    if (i > 0) {
+                                        write(", ");
+                                    }
+                                    emit((<JsxSpreadAttribute>attrs[i]).expression);
+                                }
+                                else {
+                                    Debug.assert(attrs[i].kind === SyntaxKind.JsxAttribute);
+                                    if (haveOpenedObjectLiteral) {
+                                        write(", ");
+                                    }
+                                    else {
+                                        haveOpenedObjectLiteral = true;
+                                        if (i > 0) {
+                                            write(", ");
+                                        }
+                                        write("{");
+                                    }
+                                    emitJsxAttribute(<JsxAttribute>attrs[i]);
+                                }
+                            }
+                            if (haveOpenedObjectLiteral) write("}");
+
+                            write(")"); // closing paren to React.__spread(
+                        }
+                        else {
+                            // One object literal with all the attributes in them
+                            write("{");
+                            for (var i = 0; i < attrs.length; i++) {
+                                if (i > 0) {
+                                    write(", ");
+                                }
+                                emitJsxAttribute(<JsxAttribute>attrs[i]);
+                            }
+                            write("}");
+                        }
+                    }
+
+                    // Children
+                    if (children) {
+                        for (var i = 0; i < children.length; i++) {
+                            // Don't emit empty expressions
+                            if (children[i].kind === SyntaxKind.JsxExpression && !((<JsxExpression>children[i]).expression)) {
+                                continue;
+                            }
+
+                            // Don't emit empty strings
+                            if (children[i].kind === SyntaxKind.JsxText) {
+                                const text = getTextToEmit(<JsxText>children[i]);
+                                if (text !== undefined) {
+                                    write(", \"");
+                                    write(text);
+                                    write("\"");
+                                }
+                            }
+                            else {
+                                write(", ");
+                                emit(children[i]);
+                            }
+
+                        }
+                    }
+
+                    // Closing paren
+                    write(")"); // closes "React.createElement("
+                    emitTrailingComments(openingNode);
+                }
+
+                if (node.kind === SyntaxKind.JsxElement) {
+                    emitJsxElement((<JsxElement>node).openingElement, (<JsxElement>node).children);
+                }
+                else {
+                    Debug.assert(node.kind === SyntaxKind.JsxSelfClosingElement);
+                    emitJsxElement(<JsxSelfClosingElement>node);
+                }
+            }
+            
             function jsxEmitPreserve(node: JsxElement | JsxSelfClosingElement) {
                 function emitJsxAttribute(node: JsxAttribute) {
                     emit(node.name);
@@ -7583,6 +7754,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     case JsxEmit.React:
                         jsxEmitReact(node);
                         break;
+                    case JsxEmit.DOM:
+                        jsxEmitDOM(node);
+                        break;
                     case JsxEmit.Preserve:
                     // Fall back to preserve if None was specified (we'll error earlier)
                     default:
@@ -7640,6 +7814,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function getTextToEmit(node: JsxText) {
                 switch (compilerOptions.jsx) {
                     case JsxEmit.React:
+                    case JsxEmit.DOM:
                         let text = trimReactWhitespaceAndApplyEntities(node);
                         if (text === undefined || text.length === 0) {
                             return undefined;
@@ -7656,6 +7831,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
             function emitJsxText(node: JsxText) {
                 switch (compilerOptions.jsx) {
                     case JsxEmit.React:
+                    case JsxEmit.DOM:
                         write("\"");
                         write(trimReactWhitespaceAndApplyEntities(node));
                         write("\"");
@@ -7678,6 +7854,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                             write("}");
                             break;
                         case JsxEmit.React:
+                        case JsxEmit.DOM:
                             emit(node.expression);
                             break;
                     }
@@ -7720,7 +7897,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         writeLines(extendsHelper);
                         extendsEmitted = true;
                     }
-
+                    
+                    if (compilerOptions.jsx == JsxEmit.DOM && !jsxHelperEmitted) {
+                        writeLines(jsxCreateHelper);
+                        writeLines(jsxSpreadHelper);
+                        jsxHelperEmitted = true;
+                    }
+                    
                     if (!decorateEmitted && resolver.getNodeCheckFlags(node) & NodeCheckFlags.EmitDecorate) {
                         writeLines(decorateHelper);
                         if (compilerOptions.emitDecoratorMetadata) {

@@ -2314,7 +2314,7 @@
         "category": "Message",
         "code": 6080
     },
-    "Argument for '--jsx' must be 'preserve' or 'react'.": {
+    "Argument for '--jsx' must be 'preserve', 'react' or 'dom'.": {
         "category": "Message",
         "code": 6081
     },

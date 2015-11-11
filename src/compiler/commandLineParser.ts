@@ -48,11 +48,12 @@ namespace ts {
             name: "jsx",
             type: {
                 "preserve": JsxEmit.Preserve,
-                "react": JsxEmit.React
+                "react": JsxEmit.React,
+                "dom": JsxEmit.DOM,
             },
             paramType: Diagnostics.KIND,
             description: Diagnostics.Specify_JSX_code_generation_Colon_preserve_or_react,
-            error: Diagnostics.Argument_for_jsx_must_be_preserve_or_react
+            error: Diagnostics.Argument_for_jsx_must_be_preserve_react_or_dom
         },
         {
             name: "listFiles",
