@@ -7757,9 +7757,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     }
                 }
                 else {
-                	if (modulekind == ModuleKind.ExtJS) {
-                		emit = emitExtJSNodeWithoutSourceMap;
-                	}
+                    if (modulekind == ModuleKind.ExtJS) {
+                        emit = emitExtJSNodeWithoutSourceMap;
+                    }
                     // emit prologue directives prior to __extends
                     const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                     externalImports = undefined;
@@ -8201,32 +8201,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     write(shebang);
                 }
             }
-            
-            function emitExtJSModule(node: SourceFile) {
-                const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
-                collectExternalModuleInfo(node);
-                emitCaptureThisForNodeIfNecessary(node);
-                emitLinesStartingAt(node.statements, startIndex);
-                emitTempDeclarations(/*newLine*/ true);
-                emitExportEquals(/*emitAsReturn*/ false);
-            }
-            
+
             function emitNodeWithExtJS(node: Node): void {
-                emitNodeConsideringCommentsOption(node, emitExtJSNodeWithoutSourceMap);    
+                emitNodeConsideringCommentsOption(node, emitExtJSNodeWithoutSourceMap);
             }
-            
+
             function emitExtJSNodeWithoutSourceMap(node: Node): void {
                 if (node) {
                     emitExtJSJavaScriptWorker(node);
                 }
             }
-            
+
             function emitExtJSJavaScriptWorker(node: Node) {
-                switch(node.kind) {
-                    case SyntaxKind.ModuleBlock:
-                        return emitExtJSModuleBlock(<Block>node);
-                    case SyntaxKind.ModuleDeclaration:
-                        return emitExtJSModuleDeclaration(<ModuleDeclaration>node);
+                switch (node.kind) {
                     case SyntaxKind.SuperKeyword:
                         return emitExtJSSuper(node);
                     case SyntaxKind.CallExpression:
@@ -8237,7 +8224,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         return emitJavaScriptWorker(node);
                 }
             }
-            
+
             function emitExtJSCallExpression(node: CallExpression) {
                 if (languageVersion < ScriptTarget.ES6 && hasSpreadElement(node.arguments)) {
                     emitCallWithSpread(node);
@@ -8268,30 +8255,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     write(")");
                 }
             }
-            
+
             function emitExtJSSuper(node: Node) {
-                var cls = getContainingClass(node), qualifiedName = cls.name.text;
+                const cls = getContainingClass(node);
+                let qualifiedName = cls.name.text;
+
                 for (let mod = getContainingModule(cls.parent); mod !== undefined; mod = getContainingModule(mod)) {
                     qualifiedName = mod.name.text + "." + qualifiedName;
                 }
                 write(qualifiedName);
                 write(".superclass");
             }
-            
-            function emitExtJSModuleBlock(node: Block) {
-                scopeEmitStart(node.parent);
-                if (node.kind === SyntaxKind.ModuleBlock) {
-                    Debug.assert(node.parent.kind === SyntaxKind.ModuleDeclaration);
-                    emitCaptureThisForNodeIfNecessary(node.parent);
-                }
-                emitLines(node.statements);
-                if (node.kind === SyntaxKind.ModuleBlock) {
-                    emitTempDeclarations(/*newLine*/ true);
-                }
-                writeLine();
-                scopeEmitEnd();
-            }
-            
+
             function emitExtJSModuleDeclaration(node: ModuleDeclaration) {
                 // Emit only if this module is non-ambient
                 if (node.body.kind === SyntaxKind.ModuleBlock) {
@@ -8319,9 +8294,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     scopeEmitEnd();
                 }
             }
-            
+
             function emitExtJSClassDeclaration(node: ClassDeclaration) {
-                var qualifiedName = node.name.text;
+                if (!(node.flags & NodeFlags.Export)) {
+                    return emitClassDeclaration(node);
+                }
+                let qualifiedName = node.name.text;
                 for (let mod = getContainingModule(node); mod !== undefined; mod = getContainingModule(mod)) {
                     qualifiedName = mod.name.text + "." + qualifiedName;
                 }
@@ -8367,18 +8345,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 decreaseIndent();
                 write("});");
                 writeLine();
-                //scopeEmitEnd();
-
-                if (node.kind === SyntaxKind.ClassDeclaration) {
-                    //emitExportMemberAssignment(<ClassDeclaration>node);
-                }
+                scopeEmitEnd();
             }
 
             function emitExtJSConstructor(node: ClassLikeDeclaration, baseTypeNode: Node) {
                 // Check if we have property assignment inside class declaration.
                 // If there is property assignment, we need to emit constructor whether users define it or not
                 // If there is no property assignment, we can omit constructor if users do not define it
-                let hasInstancePropertyWithInitializer = false;
+                const hasInstancePropertyWithInitializer = false;
 
                 const ctor = getFirstConstructorWithBody(node);
 
@@ -8395,12 +8369,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                 emitFunctionDeclaration(<MethodDeclaration>ctor);
                 write(",");
             }
-            
+
             function emitExtJSStatics(node: ClassLikeDeclaration) {
-                var statics: Node[] = [];
+                const statics: Node[] = [];
                 forEach(node.members, member => {
                     if (member.flags & NodeFlags.Static) {
-                        switch(member.kind) {
+                        switch (member.kind) {
                             case SyntaxKind.MethodDeclaration:
                             case SyntaxKind.MethodSignature:
                                 return statics.push(member);
@@ -8420,7 +8394,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                             if (!(<MethodDeclaration>member).body) {
                                 return emitCommentsOnNotEmittedNode(member);
                             }
-    
+
                             writeLine();
                             emitLeadingComments(member);
                             emitStart(member);
@@ -8432,7 +8406,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                             emitEnd(member);
                             write(",");
                             emitTrailingComments(member);
-                        } else if (member.kind == SyntaxKind.PropertyDeclaration) {
+                        }
+                        else if (member.kind == SyntaxKind.PropertyDeclaration) {
                             writeLine();
                             emitPropertyAssignment(<PropertyDeclaration>member);
                             write(",");
@@ -8444,7 +8419,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     writeLine();
                 }
             }
-            
+
             function emitExtJSMemberFunctions(node: ClassLikeDeclaration) {
                 forEach(node.members, member => {
                    if (member.flags & NodeFlags.Static) {
@@ -8454,7 +8429,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                         if (!(<MethodDeclaration>member).body) {
                             return emitCommentsOnNotEmittedNode(member);
                         }
-            
+
                         writeLine();
                         emitLeadingComments(member);
                         emitStart(member);
@@ -8469,7 +8444,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     }
                 });
             }
-            
+
             function emitPropertyAssignments(node: ClassLikeDeclaration, properties: PropertyDeclaration[]) {
                 for (const property of properties) {
                     emitPropertyAssignment(property);
@@ -8477,7 +8452,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
                     writeLine();
                 }
             }
-                        
+
             function getContainingClass(node: Node): ClassDeclaration {
                 do {
                     node = node.parent;
