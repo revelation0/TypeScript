@@ -8198,17 +8198,12 @@ const _super = (function (geti, seti) {
             function emitExtJSModuleDeclaration(node: ModuleDeclaration) {
                 // Emit only if this module is non-ambient
                 if (node.body.kind === SyntaxKind.ModuleBlock) {
-                    const saveConvertedLoopState = convertedLoopState;
                     const saveTempFlags = tempFlags;
                     const saveTempVariables = tempVariables;
-                    convertedLoopState = undefined;
                     tempFlags = 0;
                     tempVariables = undefined;
 
                     emit(node.body);
-
-                    Debug.assert(convertedLoopState === undefined);
-                    convertedLoopState = saveConvertedLoopState;
 
                     tempFlags = saveTempFlags;
                     tempVariables = saveTempVariables;
@@ -8247,9 +8242,7 @@ const _super = (function (geti, seti) {
                 const saveTempVariables = tempVariables;
                 const saveTempParameters = tempParameters;
                 const saveComputedPropertyNamesToGeneratedNames = computedPropertyNamesToGeneratedNames;
-                const saveConvertedLoopState = convertedLoopState;
 
-                convertedLoopState = undefined;
                 tempFlags = 0;
                 tempVariables = undefined;
                 tempParameters = undefined;
@@ -8262,9 +8255,6 @@ const _super = (function (geti, seti) {
                 emitDecoratorsOfClass(node);
                 writeLine();
                 emitTempDeclarations(/*newLine*/ true);
-
-                Debug.assert(convertedLoopState === undefined);
-                convertedLoopState = saveConvertedLoopState;
 
                 tempFlags = saveTempFlags;
                 tempVariables = saveTempVariables;
