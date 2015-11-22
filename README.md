@@ -1,94 +1,48 @@
-[![Build Status](https://travis-ci.org/Microsoft/TypeScript.svg?branch=master)](https://travis-ci.org/Microsoft/TypeScript)
-[![npm version](https://badge.fury.io/js/typescript.svg)](http://badge.fury.io/js/typescript)
-[![Downloads](http://img.shields.io/npm/dm/TypeScript.svg)](https://npmjs.org/package/typescript)
+TypeScript ExtJS Module
+=======================
 
-# TypeScript
+A fork of Typescript 1.7 that emits classes in a way that ExtJS understands.
 
-[![Join the chat at https://gitter.im/Microsoft/TypeScript](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/Microsoft/TypeScript?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+##Why?
 
-[TypeScript](http://www.typescriptlang.org/) is a language for application-scale JavaScript. TypeScript adds optional types, classes, and modules to JavaScript. TypeScript supports tools for large-scale JavaScript applications for any browser, for any host, on any OS. TypeScript compiles to readable, standards-based JavaScript. Try it out at the [playground](http://www.typescriptlang.org/Playground), and stay up to date via [our blog](http://blogs.msdn.com/typescript) and [Twitter account](https://twitter.com/typescriptlang).
+The Javascript emitted by the Typescript compiler is not compatible with the ExtJS class system. 
+ExtJS requires classes to be defined using syntax like `Ext.define(CLASSNAME, MEMBERS);` but Typescript 
+emits code based around prototypes.
 
-## Installing
+This forked compiler emits code that looks just like the ExtJS classes you would write in regular Javascript.
 
-For the latest stable version:
+##ExtJS API Type Declarations
 
-```
-npm install -g typescript
-```
+To get the most use out of this compiler you will also need some type declarations (*.d.ts files) for the ExtJS API. 
+There is a companion project to provide these: https://github.com/revelation0/typescript-declarations-for-ext
 
-For our nightly builds:
+##Caveats
 
-```
-npm install -g typescript@next
-```
+There are a few things to know when writing typescript to use with this emitter:
+  * Only exported classes are emitted using the Ext.define syntax.
+  * Because only export classes are emitted with Ext.define any class extending an Ext class MUST be exported.
+  * Because Ext.define always defines in the global scope any differences in visibility with the modules containing
+   the exported class are ignored for those classes. If you have non-exported classes with limited visibility they
+   will still be properly accessible to the Ext class.
 
-## Contribute
+##Use
 
-There are many ways to [contribute](https://github.com/Microsoft/TypeScript/blob/master/CONTRIBUTING.md) to TypeScript.
-* [Submit bugs](https://github.com/Microsoft/TypeScript/issues) and help us verify fixes as they are checked in.
-* Review the [source code changes](https://github.com/Microsoft/TypeScript/pulls).
-* Engage with other TypeScript users and developers on [StackOverflow](http://stackoverflow.com/questions/tagged/typescript). 
-* Join the [#typescript](http://twitter.com/#!/search/realtime/%23typescript) discussion on Twitter.
-* [Contribute bug fixes](https://github.com/Microsoft/TypeScript/blob/master/CONTRIBUTING.md).
-* Read the language specification ([docx](https://github.com/Microsoft/TypeScript/blob/master/doc/TypeScript%20Language%20Specification.docx?raw=true), [pdf](https://github.com/Microsoft/TypeScript/blob/master/doc/TypeScript%20Language%20Specification.pdf?raw=true), [md](https://github.com/Microsoft/TypeScript/blob/master/doc/spec.md)).
+To use simply target the "extjs" module type:
 
+```node path/to/this/tsc.js -m extjs <source>```
 
-## Documentation
+##Known Issues
 
-*  [Quick tutorial](http://www.typescriptlang.org/Tutorial)
-*  [Programming handbook](http://www.typescriptlang.org/Handbook)
-*  [Language specification](https://github.com/Microsoft/TypeScript/blob/master/doc/spec.md)
-*  [Homepage](http://www.typescriptlang.org/)
+  * Accessors are not currently implemented.  This has to do with the way they are emitted they would need to be moved
+   to the constructor most likely, I will look into that more in the future but not a feature we are utilizing so not
+   a high priority.
+  * Classes not in modules will not be emitted correctly. Classes in the global scope do not contain the export flag
+   even if they are defined that way.
 
-## Building
+##Compatability
 
-In order to build the TypeScript compiler, ensure that you have [Git](http://git-scm.com/downloads) and [Node.js](http://nodejs.org/) installed.
+This project is compatible with Typescript 1.7 and ExtJS 5.
 
-Clone a copy of the repo:
+##Thanks
 
-```
-git clone https://github.com/Microsoft/TypeScript.git
-```
-
-Change to the TypeScript directory:
-
-```
-cd TypeScript
-```
-
-Install Jake tools and dev dependencies:
-
-```
-npm install -g jake
-npm install
-```
-
-Use one of the following to build and test:
-
-```
-jake local            # Build the compiler into built/local 
-jake clean            # Delete the built compiler 
-jake LKG              # Replace the last known good with the built one.
-                      # Bootstrapping step to be executed when the built compiler reaches a stable state.
-jake tests            # Build the test infrastructure using the built compiler. 
-jake runtests         # Run tests using the built compiler and test infrastructure. 
-                      # You can override the host or specify a test for this command. 
-                      # Use host=<hostName> or tests=<testPath>. 
-jake runtests-browser # Runs the tests using the built run.js file. Syntax is jake runtests. Optional
-                        parameters 'host=', 'tests=[regex], reporter=[list|spec|json|<more>]'.
-jake baseline-accept  # This replaces the baseline test results with the results obtained from jake runtests.
-jake lint             # Runs tslint on the TypeScript source.
-jake -T               # List the above commands. 
-```
-
-
-## Usage
-
-```shell
-node built/local/tsc.js hello.ts
-```
-
-
-## Roadmap
-
-For details on our planned features and future direction please refer to our [roadmap](https://github.com/Microsoft/TypeScript/wiki/Roadmap).
+This project was inspired by (but not a fork of) https://github.com/fabioparra/TypeScriptExtJSEmitter/ 
