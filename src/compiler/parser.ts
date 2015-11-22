@@ -544,6 +544,11 @@ namespace ts {
             return result;
         }
 
+        function getLanguageVariant(fileName: string) {
+            // .tsx and .jsx files are treated as jsx language variant.
+            return fileExtensionIs(fileName, ".tsx") || fileExtensionIs(fileName, ".jsx") ?  LanguageVariant.JSX  : LanguageVariant.Standard;
+        }
+
         function initializeState(fileName: string, _sourceText: string, languageVersion: ScriptTarget, isJavaScriptFile: boolean, _syntaxCursor: IncrementalParser.SyntaxCursor) {
             NodeConstructor = objectAllocator.getNodeConstructor();
             SourceFileConstructor = objectAllocator.getSourceFileConstructor();
@@ -564,7 +569,7 @@ namespace ts {
             scanner.setText(sourceText);
             scanner.setOnError(scanError);
             scanner.setScriptTarget(languageVersion);
-            scanner.setLanguageVariant(allowsJsxExpressions(fileName) ? LanguageVariant.JSX : LanguageVariant.Standard);
+            scanner.setLanguageVariant(getLanguageVariant(fileName));
         }
 
         function clearState() {
@@ -682,7 +687,7 @@ namespace ts {
             sourceFile.languageVersion = languageVersion;
             sourceFile.fileName = normalizePath(fileName);
             sourceFile.flags = fileExtensionIs(sourceFile.fileName, ".d.ts") ? NodeFlags.DeclarationFile : 0;
-            sourceFile.languageVariant = allowsJsxExpressions(sourceFile.fileName) ? LanguageVariant.JSX : LanguageVariant.Standard;
+            sourceFile.languageVariant = getLanguageVariant(sourceFile.fileName);
 
             return sourceFile;
         }
@@ -1157,7 +1162,7 @@ namespace ts {
         }
 
         function parseAnyContextualModifier(): boolean {
-            return isModifier(token) && tryParse(nextTokenCanFollowModifier);
+            return isModifierKind(token) && tryParse(nextTokenCanFollowModifier);
         }
 
         function canFollowModifier(): boolean {
@@ -1956,6 +1961,12 @@ namespace ts {
             return finishNode(node);
         }
 
+        function parseThisTypeNode(): TypeNode {
+            const node = <TypeNode>createNode(SyntaxKind.ThisType);
+            nextToken();
+            return finishNode(node);
+        }
+
         function parseTypeQuery(): TypeQueryNode {
             const node = <TypeQueryNode>createNode(SyntaxKind.TypeQuery);
             parseExpected(SyntaxKind.TypeOfKeyword);
@@ -2004,7 +2015,7 @@ namespace ts {
         }
 
         function isStartOfParameter(): boolean {
-            return token === SyntaxKind.DotDotDotToken || isIdentifierOrPattern() || isModifier(token) || token === SyntaxKind.AtToken;
+            return token === SyntaxKind.DotDotDotToken || isIdentifierOrPattern() || isModifierKind(token) || token === SyntaxKind.AtToken;
         }
 
         function setModifiers(node: Node, modifiers: ModifiersArray) {
@@ -2025,7 +2036,7 @@ namespace ts {
 
             node.name = parseIdentifierOrPattern();
 
-            if (getFullWidth(node.name) === 0 && node.flags === 0 && isModifier(token)) {
+            if (getFullWidth(node.name) === 0 && node.flags === 0 && isModifierKind(token)) {
                 // in cases like
                 // 'use strict'
                 // function foo(static)
@@ -2132,8 +2143,8 @@ namespace ts {
             parseSemicolon();
         }
 
-        function parseSignatureMember(kind: SyntaxKind): SignatureDeclaration {
-            const node = <SignatureDeclaration>createNode(kind);
+        function parseSignatureMember(kind: SyntaxKind): CallSignatureDeclaration | ConstructSignatureDeclaration {
+            const node = <CallSignatureDeclaration | ConstructSignatureDeclaration>createNode(kind);
             if (kind === SyntaxKind.ConstructSignature) {
                 parseExpected(SyntaxKind.NewKeyword);
             }
@@ -2172,7 +2183,7 @@ namespace ts {
                 return true;
             }
 
-            if (isModifier(token)) {
+            if (isModifierKind(token)) {
                 nextToken();
                 if (isIdentifier()) {
                     return true;
@@ -2215,13 +2226,13 @@ namespace ts {
             return finishNode(node);
         }
 
-        function parsePropertyOrMethodSignature(): Declaration {
+        function parsePropertyOrMethodSignature(): PropertySignature | MethodSignature {
             const fullStart = scanner.getStartPos();
             const name = parsePropertyName();
             const questionToken = parseOptionalToken(SyntaxKind.QuestionToken);
 
             if (token === SyntaxKind.OpenParenToken || token === SyntaxKind.LessThanToken) {
-                const method = <MethodDeclaration>createNode(SyntaxKind.MethodSignature, fullStart);
+                const method = <MethodSignature>createNode(SyntaxKind.MethodSignature, fullStart);
                 method.name = name;
                 method.questionToken = questionToken;
 
@@ -2232,7 +2243,7 @@ namespace ts {
                 return finishNode(method);
             }
             else {
-                const property = <PropertyDeclaration>createNode(SyntaxKind.PropertySignature, fullStart);
+                const property = <PropertySignature>createNode(SyntaxKind.PropertySignature, fullStart);
                 property.name = name;
                 property.questionToken = questionToken;
                 property.type = parseTypeAnnotation();
@@ -2248,7 +2259,7 @@ namespace ts {
                 case SyntaxKind.OpenBracketToken: // Both for indexers and computed properties
                     return true;
                 default:
-                    if (isModifier(token)) {
+                    if (isModifierKind(token)) {
                         const result = lookAhead(isStartOfIndexSignatureDeclaration);
                         if (result) {
                             return result;
@@ -2260,7 +2271,7 @@ namespace ts {
         }
 
         function isStartOfIndexSignatureDeclaration() {
-            while (isModifier(token)) {
+            while (isModifierKind(token)) {
                 nextToken();
             }
 
@@ -2276,7 +2287,7 @@ namespace ts {
                 canParseSemicolon();
         }
 
-        function parseTypeMember(): Declaration {
+        function parseTypeMember(): TypeElement {
             switch (token) {
                 case SyntaxKind.OpenParenToken:
                 case SyntaxKind.LessThanToken:
@@ -2301,7 +2312,7 @@ namespace ts {
                     // when incrementally parsing as the parser will produce the Index declaration
                     // if it has the same text regardless of whether it is inside a class or an
                     // object type.
-                    if (isModifier(token)) {
+                    if (isModifierKind(token)) {
                         const result = tryParse(parseIndexSignatureWithModifiers);
                         if (result) {
                             return result;
@@ -2334,14 +2345,14 @@ namespace ts {
             return finishNode(node);
         }
 
-        function parseObjectTypeMembers(): NodeArray<Declaration> {
-            let members: NodeArray<Declaration>;
+        function parseObjectTypeMembers(): NodeArray<TypeElement> {
+            let members: NodeArray<TypeElement>;
             if (parseExpected(SyntaxKind.OpenBraceToken)) {
                 members = parseList(ParsingContext.TypeMembers, parseTypeMember);
                 parseExpected(SyntaxKind.CloseBraceToken);
             }
             else {
-                members = createMissingList<Declaration>();
+                members = createMissingList<TypeElement>();
             }
 
             return members;
@@ -2388,8 +2399,9 @@ namespace ts {
                 case SyntaxKind.StringLiteral:
                     return <StringLiteral>parseLiteralNode(/*internName*/ true);
                 case SyntaxKind.VoidKeyword:
-                case SyntaxKind.ThisKeyword:
                     return parseTokenNode<TypeNode>();
+                case SyntaxKind.ThisKeyword:
+                    return parseThisTypeNode();
                 case SyntaxKind.TypeOfKeyword:
                     return parseTypeQuery();
                 case SyntaxKind.OpenBraceToken:
@@ -2483,11 +2495,11 @@ namespace ts {
                 // ( ...
                 return true;
             }
-            if (isIdentifier() || isModifier(token)) {
+            if (isIdentifier() || isModifierKind(token)) {
                 nextToken();
                 if (token === SyntaxKind.ColonToken || token === SyntaxKind.CommaToken ||
                     token === SyntaxKind.QuestionToken || token === SyntaxKind.EqualsToken ||
-                    isIdentifier() || isModifier(token)) {
+                    isIdentifier() || isModifierKind(token)) {
                     // ( id :
                     // ( id ,
                     // ( id ?
@@ -2894,7 +2906,7 @@ namespace ts {
                 }
 
                 // This *could* be a parenthesized arrow function.
-                // Return Unknown to const the caller know.
+                // Return Unknown to let the caller know.
                 return Tristate.Unknown;
             }
             else {
@@ -2993,7 +3005,7 @@ namespace ts {
                 // user meant to supply a block. For example, if the user wrote:
                 //
                 //  a =>
-                //      const v = 0;
+                //      let v = 0;
                 //  }
                 //
                 // they may be missing an open brace.  Check to see if that's the case so we can
@@ -3220,7 +3232,7 @@ namespace ts {
 
         /**
          * Parse ES7 unary expression and await expression
-         * 
+         *
          * ES7 UnaryExpression:
          *      1) SimpleUnaryExpression[?yield]
          *      2) IncrementExpression[?yield] ** UnaryExpression[?yield]
@@ -4720,7 +4732,7 @@ namespace ts {
             return finishNode(node);
         }
 
-        function parseMethodDeclaration(fullStart: number, decorators: NodeArray<Decorator>, modifiers: ModifiersArray, asteriskToken: Node, name: DeclarationName, questionToken: Node, diagnosticMessage?: DiagnosticMessage): MethodDeclaration {
+        function parseMethodDeclaration(fullStart: number, decorators: NodeArray<Decorator>, modifiers: ModifiersArray, asteriskToken: Node, name: PropertyName, questionToken: Node, diagnosticMessage?: DiagnosticMessage): MethodDeclaration {
             const method = <MethodDeclaration>createNode(SyntaxKind.MethodDeclaration, fullStart);
             method.decorators = decorators;
             setModifiers(method, modifiers);
@@ -4734,7 +4746,7 @@ namespace ts {
             return finishNode(method);
         }
 
-        function parsePropertyDeclaration(fullStart: number, decorators: NodeArray<Decorator>, modifiers: ModifiersArray, name: DeclarationName, questionToken: Node): ClassElement {
+        function parsePropertyDeclaration(fullStart: number, decorators: NodeArray<Decorator>, modifiers: ModifiersArray, name: PropertyName, questionToken: Node): ClassElement {
             const property = <PropertyDeclaration>createNode(SyntaxKind.PropertyDeclaration, fullStart);
             property.decorators = decorators;
             setModifiers(property, modifiers);
@@ -4808,7 +4820,7 @@ namespace ts {
             }
 
             // Eat up all modifiers, but hold on to the last one in case it is actually an identifier.
-            while (isModifier(token)) {
+            while (isModifierKind(token)) {
                 idToken = token;
                 // If the idToken is a class modifier (protected, private, public, and static), it is
                 // certain that we are starting to parse class member. This allows better error recovery
@@ -5018,8 +5030,8 @@ namespace ts {
             // implements is a future reserved word so
             // 'class implements' might mean either
             // - class expression with omitted name, 'implements' starts heritage clause
-            // - class with name 'implements' 
-            // 'isImplementsClause' helps to disambiguate between these two cases 
+            // - class with name 'implements'
+            // 'isImplementsClause' helps to disambiguate between these two cases
             return isIdentifier() && !isImplementsClause()
                 ? parseIdentifier()
                 : undefined;

@@ -476,15 +476,41 @@ namespace ts {
                 // Locals of a source file are not in scope (because they get merged into the global symbol table)
                 if (location.locals && !isGlobalSourceFile(location)) {
                     if (result = getSymbol(location.locals, name, meaning)) {
-                        // Type parameters of a function are in scope in the entire function declaration, including the parameter
-                        // list and return type. However, local types are only in scope in the function body.
-                        if (!(meaning & SymbolFlags.Type) ||
-                            !(result.flags & (SymbolFlags.Type & ~SymbolFlags.TypeParameter)) ||
-                            !isFunctionLike(location) ||
-                            lastLocation === (<FunctionLikeDeclaration>location).body) {
+                        let useResult = true;
+                        if (isFunctionLike(location) && lastLocation && lastLocation !== (<FunctionLikeDeclaration>location).body) {
+                            // symbol lookup restrictions for function-like declarations
+                            // - Type parameters of a function are in scope in the entire function declaration, including the parameter
+                            //   list and return type. However, local types are only in scope in the function body.
+                            // - parameters are only in the scope of function body
+                            if (meaning & result.flags & SymbolFlags.Type) {
+                                useResult = result.flags & SymbolFlags.TypeParameter
+                                    // type parameters are visible in parameter list, return type and type parameter list
+                                    ? lastLocation === (<FunctionLikeDeclaration>location).type ||
+                                      lastLocation.kind === SyntaxKind.Parameter ||
+                                      lastLocation.kind === SyntaxKind.TypeParameter
+                                    // local types not visible outside the function body
+                                    : false;
+                            }
+                            if (meaning & SymbolFlags.Value && result.flags & SymbolFlags.FunctionScopedVariable) {
+                                // parameters are visible only inside function body, parameter list and return type
+                                // technically for parameter list case here we might mix parameters and variables declared in function,
+                                // however it is detected separately when checking initializers of parameters
+                                // to make sure that they reference no variables declared after them.
+                                useResult =
+                                    lastLocation.kind === SyntaxKind.Parameter ||
+                                    (
+                                        lastLocation === (<FunctionLikeDeclaration>location).type &&
+                                        result.valueDeclaration.kind === SyntaxKind.Parameter
+                                    );
+                            }
+                        }
+
+                        if (useResult) {
                             break loop;
                         }
-                        result = undefined;
+                        else {
+                            result = undefined;
+                        }
                     }
                 }
                 switch (location.kind) {
@@ -3829,7 +3855,13 @@ namespace ts {
                 let minArgumentCount = -1;
                 for (let i = 0, n = declaration.parameters.length; i < n; i++) {
                     const param = declaration.parameters[i];
-                    parameters.push(param.symbol);
+                    let paramSymbol = param.symbol;
+                    // Include parameter symbol instead of property symbol in the signature
+                    if (paramSymbol && !!(paramSymbol.flags & SymbolFlags.Property) && !isBindingPattern(param.name)) {
+                        const resolvedSymbol = resolveName(param, paramSymbol.name, SymbolFlags.Value, undefined, undefined);
+                        paramSymbol = resolvedSymbol;
+                    }
+                    parameters.push(paramSymbol);
                     if (param.type && param.type.kind === SyntaxKind.StringLiteral) {
                         hasStringLiterals = true;
                     }
@@ -4553,7 +4585,7 @@ namespace ts {
                     return esSymbolType;
                 case SyntaxKind.VoidKeyword:
                     return voidType;
-                case SyntaxKind.ThisKeyword:
+                case SyntaxKind.ThisType:
                     return getTypeFromThisTypeNode(node);
                 case SyntaxKind.StringLiteral:
                     return getTypeFromStringLiteral(<StringLiteral>node);
@@ -6395,6 +6427,8 @@ namespace ts {
             // Only narrow when symbol is variable of type any or an object, union, or type parameter type
             if (node && symbol.flags & SymbolFlags.Variable) {
                 if (isTypeAny(type) || type.flags & (TypeFlags.ObjectType | TypeFlags.Union | TypeFlags.TypeParameter)) {
+                    const declaration = getDeclarationOfKind(symbol, SyntaxKind.VariableDeclaration);
+                    const top = declaration && getDeclarationContainer(declaration);
                     const originalType = type;
                     const nodeStack: {node: Node, child: Node}[] = [];
                     loop: while (node.parent) {
@@ -6408,14 +6442,11 @@ namespace ts {
                                 break;
                             case SyntaxKind.SourceFile:
                             case SyntaxKind.ModuleDeclaration:
-                            case SyntaxKind.FunctionDeclaration:
-                            case SyntaxKind.MethodDeclaration:
-                            case SyntaxKind.MethodSignature:
-                            case SyntaxKind.GetAccessor:
-                            case SyntaxKind.SetAccessor:
-                            case SyntaxKind.Constructor:
-                                // Stop at the first containing function or module declaration
+                                // Stop at the first containing file or module declaration
                                 break loop;
+                        }
+                        if (node === top) {
+                            break;
                         }
                     }
 
@@ -9873,7 +9904,7 @@ namespace ts {
             return type;
         }
 
-        function checkFunctionExpressionOrObjectLiteralMethodBody(node: FunctionExpression | MethodDeclaration) {
+        function checkFunctionExpressionOrObjectLiteralMethodBody(node: ArrowFunction | FunctionExpression | MethodDeclaration) {
             Debug.assert(node.kind !== SyntaxKind.MethodDeclaration || isObjectLiteralMethod(node));
 
             const isAsync = isAsyncFunctionLike(node);
@@ -10177,7 +10208,7 @@ namespace ts {
                             checkDestructuringAssignment(<ShorthandPropertyAssignment>p, type);
                         }
                         else {
-                            // non-shorthand property assignments should always have initializers 
+                            // non-shorthand property assignments should always have initializers
                             checkDestructuringAssignment((<PropertyAssignment>p).initializer, type);
                         }
                     }
@@ -11003,6 +11034,7 @@ namespace ts {
 
             const symbol = getSymbolOfNode(node);
             const firstDeclaration = getDeclarationOfKind(symbol, node.kind);
+
             // Only type check the symbol once
             if (node === firstDeclaration) {
                 checkFunctionOrConstructorSymbol(symbol);
@@ -12033,7 +12065,14 @@ namespace ts {
                 const symbol = getSymbolOfNode(node);
                 const localSymbol = node.localSymbol || symbol;
 
-                const firstDeclaration = getDeclarationOfKind(localSymbol, node.kind);
+                // Since the javascript won't do semantic analysis like typescript, 
+                // if the javascript file comes before the typescript file and both contain same name functions, 
+                // checkFunctionOrConstructorSymbol wouldn't be called if we didnt ignore javascript function.
+                const firstDeclaration = forEach(localSymbol.declarations,
+                    // Get first non javascript function declaration
+                    declaration => declaration.kind === node.kind && !isSourceFileJavaScript(getSourceFile(declaration)) ?
+                        declaration : undefined);
+
                 // Only type check the symbol once
                 if (node === firstDeclaration) {
                     checkFunctionOrConstructorSymbol(localSymbol);
@@ -14650,6 +14689,9 @@ namespace ts {
                 case SyntaxKind.SuperKeyword:
                     const type = isExpression(node) ? checkExpression(<Expression>node) : getTypeFromTypeNode(<TypeNode>node);
                     return type.symbol;
+
+                case SyntaxKind.ThisType:
+                    return getTypeFromTypeNode(<TypeNode>node).symbol;
 
                 case SyntaxKind.ConstructorKeyword:
                     // constructor keyword for an overload, should take us to the definition if it exist
