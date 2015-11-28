@@ -8261,7 +8261,9 @@ const _super = (function (geti, seti) {
                 tempParameters = saveTempParameters;
                 computedPropertyNamesToGeneratedNames = saveComputedPropertyNamesToGeneratedNames;
                 decreaseIndent();
-                write("});");
+                write("}");
+                emitExtJSAccessors(node);
+                write(");");
                 writeLine();
                 scopeEmitEnd();
             }
@@ -8335,6 +8337,72 @@ const _super = (function (geti, seti) {
                     writeLine();
                     write("},");
                     writeLine();
+                }
+            }
+            
+            function emitExtJSAccessors(node: ClassLikeDeclaration) {
+                const members: Node[] = [];
+                forEach(node.members, member => {
+                    switch (member.kind) {
+                        case SyntaxKind.GetAccessor:
+                        case SyntaxKind.SetAccessor:
+                            return members.push(member);
+                    }
+                });
+                if (members.length > 0) {
+                    write(", function(");
+                    emitDeclarationName(node);
+                    write(") {");
+                    writeLine();
+                    increaseIndent();
+                    forEach(members, member => {
+                        const accessors = getAllAccessorDeclarations(node.members, <AccessorDeclaration>member);
+                        if (member === accessors.firstAccessor) {
+                            writeLine();
+                            emitStart(member);
+                            write("Object.defineProperty(");
+                            emitStart((<AccessorDeclaration>member).name);
+                            emitClassMemberPrefix(node, member);
+                            write(", ");
+                            emitExpressionForPropertyName((<AccessorDeclaration>member).name);
+                            emitEnd((<AccessorDeclaration>member).name);
+                            write(", {");
+                            increaseIndent();
+                            if (accessors.getAccessor) {
+                                writeLine();
+                                emitLeadingComments(accessors.getAccessor);
+                                write("get: ");
+                                emitStart(accessors.getAccessor);
+                                write("function ");
+                                emitSignatureAndBody(accessors.getAccessor);
+                                emitEnd(accessors.getAccessor);
+                                emitTrailingComments(accessors.getAccessor);
+                                write(",");
+                            }
+                            if (accessors.setAccessor) {
+                                writeLine();
+                                emitLeadingComments(accessors.setAccessor);
+                                write("set: ");
+                                emitStart(accessors.setAccessor);
+                                write("function ");
+                                emitSignatureAndBody(accessors.setAccessor);
+                                emitEnd(accessors.setAccessor);
+                                emitTrailingComments(accessors.setAccessor);
+                                write(",");
+                            }
+                            writeLine();
+                            write("enumerable: true,");
+                            writeLine();
+                            write("configurable: true");
+                            decreaseIndent();
+                            writeLine();
+                            write("});");
+                            emitEnd(member);
+                        }
+                    });
+                    writeLine();
+                    decreaseIndent();
+                    write("}");
                 }
             }
 
