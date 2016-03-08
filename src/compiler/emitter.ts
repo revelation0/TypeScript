@@ -7651,9 +7651,6 @@ const _super = (function (geti, seti) {
                     }
                 }
                 else {
-                    if (modulekind == ModuleKind.ExtJS) {
-                        emit = emitExtJSNodeWithoutSourceMap;
-                    }
                     // emit prologue directives prior to __extends
                     const startIndex = emitDirectivePrologues(node.statements, /*startWithNewLine*/ false);
                     externalImports = undefined;
@@ -7683,7 +7680,9 @@ const _super = (function (geti, seti) {
                         return emitCommentsOnNotEmittedNode(node);
                     }
 
-                    if (isSpecializedCommentHandling(node)) {
+                    if (modulekind == ModuleKind.ExtJS) {
+                        return emitExtJSNodeWithoutSourceMap(node);
+                    } else if (isSpecializedCommentHandling(node)) {
                         // This is the node that will handle its own comments and sourcemap
                         return emitNodeWithoutSourceMap(node);
                     }
@@ -8209,12 +8208,10 @@ const _super = (function (geti, seti) {
                     tempVariables = saveTempVariables;
                 }
                 else {
-                    scopeEmitStart(node);
                     emitCaptureThisForNodeIfNecessary(node);
                     writeLine();
                     emit(node.body);
                     writeLine();
-                    scopeEmitEnd();
                 }
             }
 
@@ -8252,7 +8249,7 @@ const _super = (function (geti, seti) {
                 emitExtJSConstructor(node, baseTypeNode);
                 emitExtJSMemberFunctions(node);
                 writeLine();
-                emitDecoratorsOfClass(node);
+                emitDecoratorsOfClass(node, undefined);
                 writeLine();
                 emitTempDeclarations(/*newLine*/ true);
 
@@ -8265,7 +8262,6 @@ const _super = (function (geti, seti) {
                 emitExtJSAccessors(node);
                 write(");");
                 writeLine();
-                scopeEmitEnd();
             }
 
             function emitExtJSConstructor(node: ClassLikeDeclaration, baseTypeNode: Node) {

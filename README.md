@@ -33,9 +33,6 @@ To use simply target the "extjs" module type:
 
 ##Known Issues
 
-  * Accessors are not currently implemented.  This has to do with the way they are emitted they would need to be moved
-   to the constructor most likely, I will look into that more in the future but not a feature we are utilizing so not
-   a high priority.
   * Classes not in modules will not be emitted correctly. Classes in the global scope do not contain the export flag
    even if they are defined that way.
 
