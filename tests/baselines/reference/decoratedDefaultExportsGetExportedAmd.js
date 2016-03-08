@@ -23,11 +23,12 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 define(["require", "exports"], function (require, exports) {
     "use strict";
     var decorator;
-    let Foo = class {
+    let Foo = class Foo {
     };
     Foo = __decorate([
         decorator
     ], Foo);
+    Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = Foo;
 });
 //// [b.js]
@@ -45,5 +46,6 @@ define(["require", "exports"], function (require, exports) {
     default_1 = __decorate([
         decorator
     ], default_1);
+    Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = default_1;
 });

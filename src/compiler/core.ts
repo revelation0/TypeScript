@@ -74,8 +74,6 @@ namespace ts {
         GreaterThan = 1
     }
 
-    export interface StringSet extends Map<any> { }
-
     /**
      * Iterates through 'array' by index and performs the callback on each element of array until the callback
      * returns a truthy value, then returns that value.
@@ -244,9 +242,11 @@ namespace ts {
             const count = array.length;
             if (count > 0) {
                 let pos = 0;
-                let result = arguments.length <= 2 ? array[pos++] : initial;
+                let result = arguments.length <= 2 ? array[pos] : initial;
+                pos++;
                 while (pos < count) {
-                    result = f(<U>result, array[pos++]);
+                    result = f(<U>result, array[pos]);
+                    pos++;
                 }
                 return <U>result;
             }
@@ -260,9 +260,11 @@ namespace ts {
         if (array) {
             let pos = array.length - 1;
             if (pos >= 0) {
-                let result = arguments.length <= 2 ? array[pos--] : initial;
+                let result = arguments.length <= 2 ? array[pos] : initial;
+                pos--;
                 while (pos >= 0) {
-                    result = f(<U>result, array[pos--]);
+                    result = f(<U>result, array[pos]);
+                    pos--;
                 }
                 return <U>result;
             }
@@ -274,6 +276,14 @@ namespace ts {
 
     export function hasProperty<T>(map: Map<T>, key: string): boolean {
         return hasOwnProperty.call(map, key);
+    }
+
+    export function getKeys<T>(map: Map<T>): string[] {
+        const keys: string[] = [];
+        for (const key in map) {
+            keys.push(key);
+        }
+        return keys;
     }
 
     export function getProperty<T>(map: Map<T>, key: string): T {
@@ -435,6 +445,17 @@ namespace ts {
             category: message.category,
             code: message.code,
         };
+    }
+
+    /* internal */
+    export function formatMessage(dummy: any, message: DiagnosticMessage): string {
+        let text = getLocaleSpecificMessage(message);
+
+        if (arguments.length > 2) {
+            text = formatStringFromArgs(text, arguments, 2);
+        }
+
+        return text;
     }
 
     export function createCompilerDiagnostic(message: DiagnosticMessage, ...args: any[]): Diagnostic;
@@ -612,7 +633,9 @@ namespace ts {
         return path.substr(0, rootLength) + normalized.join(directorySeparator);
     }
 
-    export function getDirectoryPath(path: string) {
+    export function getDirectoryPath(path: Path): Path;
+    export function getDirectoryPath(path: string): string;
+    export function getDirectoryPath(path: string): any {
         return path.substr(0, Math.max(getRootLength(path), path.lastIndexOf(directorySeparator)));
     }
 
@@ -652,7 +675,7 @@ namespace ts {
     }
 
     function getNormalizedPathComponentsOfUrl(url: string) {
-        // Get root length of http://www.website.com/folder1/foler2/
+        // Get root length of http://www.website.com/folder1/folder2/
         // In this example the root is:  http://www.website.com/
         // normalized path components should be ["http://www.website.com/", "folder1", "folder2"]
 
@@ -680,7 +703,7 @@ namespace ts {
         const indexOfNextSlash = url.indexOf(directorySeparator, rootLength);
         if (indexOfNextSlash !== -1) {
             // Found the "/" after the website.com so the root is length of http://www.website.com/
-            // and get components afetr the root normally like any other folder components
+            // and get components after the root normally like any other folder components
             rootLength = indexOfNextSlash + 1;
             return normalizedPathComponents(url, rootLength);
         }
@@ -712,7 +735,8 @@ namespace ts {
         }
 
         // Find the component that differs
-        for (var joinStartIndex = 0; joinStartIndex < pathComponents.length && joinStartIndex < directoryComponents.length; joinStartIndex++) {
+        let joinStartIndex: number;
+        for (joinStartIndex = 0; joinStartIndex < pathComponents.length && joinStartIndex < directoryComponents.length; joinStartIndex++) {
             if (getCanonicalFileName(directoryComponents[joinStartIndex]) !== getCanonicalFileName(pathComponents[joinStartIndex])) {
                 break;
             }
@@ -762,6 +786,32 @@ namespace ts {
         return pathLen > extLen && path.substr(pathLen - extLen, extLen) === extension;
     }
 
+    export function ensureScriptKind(fileName: string, scriptKind?: ScriptKind): ScriptKind {
+        // Using scriptKind as a condition handles both:
+        // - 'scriptKind' is unspecified and thus it is `undefined`
+        // - 'scriptKind' is set and it is `Unknown` (0)
+        // If the 'scriptKind' is 'undefined' or 'Unknown' then we attempt
+        // to get the ScriptKind from the file name. If it cannot be resolved
+        // from the file name then the default 'TS' script kind is returned.
+        return (scriptKind || getScriptKindFromFileName(fileName)) || ScriptKind.TS;
+    }
+
+    export function getScriptKindFromFileName(fileName: string): ScriptKind {
+        const ext = fileName.substr(fileName.lastIndexOf("."));
+        switch (ext.toLowerCase()) {
+            case ".js":
+                return ScriptKind.JS;
+            case ".jsx":
+                return ScriptKind.JSX;
+            case ".ts":
+                return ScriptKind.TS;
+            case ".tsx":
+                return ScriptKind.TSX;
+            default:
+                return ScriptKind.Unknown;
+        }
+    }
+
     /**
      *  List of supported extensions in order of file resolution precedence.
      */
@@ -793,23 +843,6 @@ namespace ts {
         }
         return path;
     }
-
-    const backslashOrDoubleQuote = /[\"\\]/g;
-    const escapedCharsRegExp = /[\u0000-\u001f\t\v\f\b\r\n\u2028\u2029\u0085]/g;
-    const escapedCharsMap: Map<string> = {
-        "\0": "\\0",
-        "\t": "\\t",
-        "\v": "\\v",
-        "\f": "\\f",
-        "\b": "\\b",
-        "\r": "\\r",
-        "\n": "\\n",
-        "\\": "\\\\",
-        "\"": "\\\"",
-        "\u2028": "\\u2028", // lineSeparator
-        "\u2029": "\\u2029", // paragraphSeparator
-        "\u0085": "\\u0085"  // nextLine
-    };
 
     export interface ObjectAllocator {
         getNodeConstructor(): new (kind: SyntaxKind, pos?: number, end?: number) => Node;
@@ -887,4 +920,11 @@ namespace ts {
         }
         return copiedList;
     }
+
+    export function createGetCanonicalFileName(useCaseSensitivefileNames: boolean): (fileName: string) => string {
+        return useCaseSensitivefileNames
+            ? ((fileName) => fileName)
+            : ((fileName) => fileName.toLowerCase());
+    }
+
 }
