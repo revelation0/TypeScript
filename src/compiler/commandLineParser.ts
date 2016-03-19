@@ -306,6 +306,10 @@ namespace ts {
             name: "noCustomAsyncPromise",
             type: "boolean",
             experimental: true
+        },
+        {
+            name: "disableSizeLimit",
+            type: "boolean"
         }
     ];
 
@@ -535,7 +539,7 @@ namespace ts {
                 }
                 else {
                     // by default exclude node_modules, and any specificied output directory
-                    exclude = ["node_modules"];
+                    exclude = ["node_modules", "bower_components"];
                     const outDir = json["compilerOptions"] && json["compilerOptions"]["outDir"];
                     if (outDir) {
                         exclude.push(outDir);
