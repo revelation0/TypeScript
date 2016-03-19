@@ -1,0 +1,26 @@
+=== tests/cases/compiler/extjsClassMembers.ts ===
+namespace Test {
+>Test : typeof Test
+
+    export class TestClass {
+>TestClass : TestClass
+
+        private privateVal: String = "private";
+>privateVal : String
+>String : String
+>"private" : string
+
+        public publicVal: String = "public";
+>publicVal : String
+>String : String
+>"public" : string
+
+        public publicMethod() {
+>publicMethod : () => void
+        }
+        private privateMethod() {
+>privateMethod : () => void
+        }
+    }
+}
+

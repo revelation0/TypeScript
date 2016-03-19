@@ -1,0 +1,30 @@
+=== tests/cases/compiler/extjsProperties.ts ===
+namespace Test {
+>Test : Symbol(Test, Decl(extjsProperties.ts, 0, 0))
+
+    export class TestClass {
+>TestClass : Symbol(TestClass, Decl(extjsProperties.ts, 0, 16))
+
+        get testProp(): String {
+>testProp : Symbol(testProp, Decl(extjsProperties.ts, 1, 28), Decl(extjsProperties.ts, 4, 9))
+>String : Symbol(String, Decl(lib.d.ts, --, --), Decl(lib.d.ts, --, --))
+
+            return "testprop";
+        }
+        set testProp(prop: String) {
+>testProp : Symbol(testProp, Decl(extjsProperties.ts, 1, 28), Decl(extjsProperties.ts, 4, 9))
+>prop : Symbol(prop, Decl(extjsProperties.ts, 5, 21))
+>String : Symbol(String, Decl(lib.d.ts, --, --), Decl(lib.d.ts, --, --))
+        }
+        get secondProp(): number {
+>secondProp : Symbol(secondProp, Decl(extjsProperties.ts, 6, 9), Decl(extjsProperties.ts, 9, 9))
+
+            return 2;
+        }
+        set secondProp(prop: number) {
+>secondProp : Symbol(secondProp, Decl(extjsProperties.ts, 6, 9), Decl(extjsProperties.ts, 9, 9))
+>prop : Symbol(prop, Decl(extjsProperties.ts, 10, 23))
+        }
+    }
+}
+

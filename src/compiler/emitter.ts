@@ -7682,7 +7682,8 @@ const _super = (function (geti, seti) {
 
                     if (modulekind == ModuleKind.ExtJS) {
                         return emitExtJSNodeWithoutSourceMap(node);
-                    } else if (isSpecializedCommentHandling(node)) {
+                    }
+                    else if (isSpecializedCommentHandling(node)) {
                         // This is the node that will handle its own comments and sourcemap
                         return emitNodeWithoutSourceMap(node);
                     }
@@ -8129,10 +8130,6 @@ const _super = (function (geti, seti) {
                 }
             }
 
-            function emitNodeWithExtJS(node: Node): void {
-                emitNodeConsideringCommentsOption(node, emitExtJSNodeWithoutSourceMap);
-            }
-
             function emitExtJSNodeWithoutSourceMap(node: Node): void {
                 if (node) {
                     emitExtJSJavaScriptWorker(node);
@@ -8194,27 +8191,6 @@ const _super = (function (geti, seti) {
                 write(".superclass");
             }
 
-            function emitExtJSModuleDeclaration(node: ModuleDeclaration) {
-                // Emit only if this module is non-ambient
-                if (node.body.kind === SyntaxKind.ModuleBlock) {
-                    const saveTempFlags = tempFlags;
-                    const saveTempVariables = tempVariables;
-                    tempFlags = 0;
-                    tempVariables = undefined;
-
-                    emit(node.body);
-
-                    tempFlags = saveTempFlags;
-                    tempVariables = saveTempVariables;
-                }
-                else {
-                    emitCaptureThisForNodeIfNecessary(node);
-                    writeLine();
-                    emit(node.body);
-                    writeLine();
-                }
-            }
-
             function emitExtJSClassDeclaration(node: ClassDeclaration) {
                 if (!(node.flags & NodeFlags.Export)) {
                     return emitClassDeclaration(node);
@@ -8223,7 +8199,9 @@ const _super = (function (geti, seti) {
                 for (let mod = getContainingModule(node); mod !== undefined; mod = getContainingModule(mod)) {
                     qualifiedName = mod.name.text + "." + qualifiedName;
                 }
-                write("Ext.define('");
+                write("var ");
+                emitDeclarationName(node);
+                write(" = Ext.define('");
                 write(qualifiedName);
                 write("', {");
                 increaseIndent();
@@ -8245,7 +8223,7 @@ const _super = (function (geti, seti) {
                 tempParameters = undefined;
                 computedPropertyNamesToGeneratedNames = undefined;
                 emitExtJSStatics(node);
-                emitPropertyAssignments(node, getInitializedProperties(node, /*static:*/ false));
+                emitPropertyAssignments(node, getInitializedProperties(node, /*isStatic*/ false));
                 emitExtJSConstructor(node, baseTypeNode);
                 emitExtJSMemberFunctions(node);
                 writeLine();
@@ -8268,7 +8246,6 @@ const _super = (function (geti, seti) {
                 // Check if we have property assignment inside class declaration.
                 // If there is property assignment, we need to emit constructor whether users define it or not
                 // If there is no property assignment, we can omit constructor if users do not define it
-                const hasInstancePropertyWithInitializer = false;
 
                 const ctor = getFirstConstructorWithBody(node);
 
@@ -8293,35 +8270,38 @@ const _super = (function (geti, seti) {
                         switch (member.kind) {
                             case SyntaxKind.MethodDeclaration:
                             case SyntaxKind.MethodSignature:
-                                return statics.push(member);
+                                statics.push(member);
+                                break;
                             case SyntaxKind.PropertyDeclaration:
                                 if ((<PropertyDeclaration>member).initializer) {
-                                    return statics.push(member);
+                                    statics.push(member);
+                                    break;
                                 }
                         }
                     }
                 });
                 if (statics.length > 0) {
-                    write("statics {");
+                    write("statics: {");
                     writeLine();
                     increaseIndent();
                     forEach(statics, member => {
                         if (member.kind === SyntaxKind.MethodDeclaration || node.kind === SyntaxKind.MethodSignature) {
                             if (!(<MethodDeclaration>member).body) {
-                                return emitCommentsOnNotEmittedNode(member);
+                                emitCommentsOnNotEmittedNode(member);
                             }
-
-                            writeLine();
-                            emitLeadingComments(member);
-                            emitStart(member);
-                            emitStart((<MethodDeclaration>member).name);
-                            emit((<MethodDeclaration>member).name);
-                            emitEnd((<MethodDeclaration>member).name);
-                            write(": ");
-                            emitFunctionDeclaration(<MethodDeclaration>member);
-                            emitEnd(member);
-                            write(",");
-                            emitTrailingComments(member);
+                            else {
+                                writeLine();
+                                emitLeadingComments(member);
+                                emitStart(member);
+                                emitStart((<MethodDeclaration>member).name);
+                                emit((<MethodDeclaration>member).name);
+                                emitEnd((<MethodDeclaration>member).name);
+                                write(": ");
+                                emitFunctionDeclaration(<MethodDeclaration>member);
+                                emitEnd(member);
+                                write(",");
+                                emitTrailingComments(member);
+                            }
                         }
                         else if (member.kind == SyntaxKind.PropertyDeclaration) {
                             writeLine();
@@ -8335,7 +8315,7 @@ const _super = (function (geti, seti) {
                     writeLine();
                 }
             }
-            
+
             function emitExtJSAccessors(node: ClassLikeDeclaration) {
                 const members: Node[] = [];
                 forEach(node.members, member => {

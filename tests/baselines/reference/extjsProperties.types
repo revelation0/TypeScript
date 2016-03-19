@@ -1,0 +1,32 @@
+=== tests/cases/compiler/extjsProperties.ts ===
+namespace Test {
+>Test : typeof Test
+
+    export class TestClass {
+>TestClass : TestClass
+
+        get testProp(): String {
+>testProp : String
+>String : String
+
+            return "testprop";
+>"testprop" : string
+        }
+        set testProp(prop: String) {
+>testProp : String
+>prop : String
+>String : String
+        }
+        get secondProp(): number {
+>secondProp : number
+
+            return 2;
+>2 : number
+        }
+        set secondProp(prop: number) {
+>secondProp : number
+>prop : number
+        }
+    }
+}
+

@@ -1,0 +1,24 @@
+=== tests/cases/compiler/extjsClassMembers.ts ===
+namespace Test {
+>Test : Symbol(Test, Decl(extjsClassMembers.ts, 0, 0))
+
+    export class TestClass {
+>TestClass : Symbol(TestClass, Decl(extjsClassMembers.ts, 0, 16))
+
+        private privateVal: String = "private";
+>privateVal : Symbol(privateVal, Decl(extjsClassMembers.ts, 1, 28))
+>String : Symbol(String, Decl(lib.d.ts, --, --), Decl(lib.d.ts, --, --))
+
+        public publicVal: String = "public";
+>publicVal : Symbol(publicVal, Decl(extjsClassMembers.ts, 2, 47))
+>String : Symbol(String, Decl(lib.d.ts, --, --), Decl(lib.d.ts, --, --))
+
+        public publicMethod() {
+>publicMethod : Symbol(publicMethod, Decl(extjsClassMembers.ts, 3, 44))
+        }
+        private privateMethod() {
+>privateMethod : Symbol(privateMethod, Decl(extjsClassMembers.ts, 5, 9))
+        }
+    }
+}
+

@@ -1,0 +1,20 @@
+=== tests/cases/compiler/extjsStatics.ts ===
+namespace Test {
+>Test : Symbol(Test, Decl(extjsStatics.ts, 0, 0))
+
+    export class TestClass {
+>TestClass : Symbol(TestClass, Decl(extjsStatics.ts, 0, 16))
+
+        static val:String = "test";
+>val : Symbol(TestClass.val, Decl(extjsStatics.ts, 1, 28))
+>String : Symbol(String, Decl(lib.d.ts, --, --), Decl(lib.d.ts, --, --))
+
+        public static method() {
+>method : Symbol(TestClass.method, Decl(extjsStatics.ts, 2, 35))
+        }
+        private static privateMethod() {
+>privateMethod : Symbol(TestClass.privateMethod, Decl(extjsStatics.ts, 4, 9))
+        }
+    }
+}
+

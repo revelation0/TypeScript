@@ -1,0 +1,44 @@
+=== tests/cases/compiler/extjsSuper.ts ===
+namespace Test {
+>Test : typeof Test
+
+    export class BaseClass {
+>BaseClass : BaseClass
+
+        constructor() {
+        }
+        method(arg1: String, arg2: String) {
+>method : (arg1: String, arg2: String) => void
+>arg1 : String
+>String : String
+>arg2 : String
+>String : String
+        }
+    }
+    export class TestClass extends BaseClass {
+>TestClass : TestClass
+>BaseClass : BaseClass
+
+        constructor() {
+            super();
+>super() : void
+>super : typeof BaseClass
+        }
+        method(arg1: String, arg2: String) {
+>method : (arg1: String, arg2: String) => void
+>arg1 : String
+>String : String
+>arg2 : String
+>String : String
+
+            super.method(arg1, arg2);
+>super.method(arg1, arg2) : void
+>super.method : (arg1: String, arg2: String) => void
+>super : BaseClass
+>method : (arg1: String, arg2: String) => void
+>arg1 : String
+>arg2 : String
+        }
+    }
+}
+

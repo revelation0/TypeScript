@@ -1,0 +1,21 @@
+=== tests/cases/compiler/extjsStatics.ts ===
+namespace Test {
+>Test : typeof Test
+
+    export class TestClass {
+>TestClass : TestClass
+
+        static val:String = "test";
+>val : String
+>String : String
+>"test" : string
+
+        public static method() {
+>method : () => void
+        }
+        private static privateMethod() {
+>privateMethod : () => void
+        }
+    }
+}
+

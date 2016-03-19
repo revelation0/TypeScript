@@ -1,0 +1,42 @@
+=== tests/cases/compiler/extjsSuper.ts ===
+namespace Test {
+>Test : Symbol(Test, Decl(extjsSuper.ts, 0, 0))
+
+    export class BaseClass {
+>BaseClass : Symbol(BaseClass, Decl(extjsSuper.ts, 0, 16))
+
+        constructor() {
+        }
+        method(arg1: String, arg2: String) {
+>method : Symbol(method, Decl(extjsSuper.ts, 3, 9))
+>arg1 : Symbol(arg1, Decl(extjsSuper.ts, 4, 15))
+>String : Symbol(String, Decl(lib.d.ts, --, --), Decl(lib.d.ts, --, --))
+>arg2 : Symbol(arg2, Decl(extjsSuper.ts, 4, 28))
+>String : Symbol(String, Decl(lib.d.ts, --, --), Decl(lib.d.ts, --, --))
+        }
+    }
+    export class TestClass extends BaseClass {
+>TestClass : Symbol(TestClass, Decl(extjsSuper.ts, 6, 5))
+>BaseClass : Symbol(BaseClass, Decl(extjsSuper.ts, 0, 16))
+
+        constructor() {
+            super();
+>super : Symbol(BaseClass, Decl(extjsSuper.ts, 0, 16))
+        }
+        method(arg1: String, arg2: String) {
+>method : Symbol(method, Decl(extjsSuper.ts, 10, 9))
+>arg1 : Symbol(arg1, Decl(extjsSuper.ts, 11, 15))
+>String : Symbol(String, Decl(lib.d.ts, --, --), Decl(lib.d.ts, --, --))
+>arg2 : Symbol(arg2, Decl(extjsSuper.ts, 11, 28))
+>String : Symbol(String, Decl(lib.d.ts, --, --), Decl(lib.d.ts, --, --))
+
+            super.method(arg1, arg2);
+>super.method : Symbol(BaseClass.method, Decl(extjsSuper.ts, 3, 9))
+>super : Symbol(BaseClass, Decl(extjsSuper.ts, 0, 16))
+>method : Symbol(BaseClass.method, Decl(extjsSuper.ts, 3, 9))
+>arg1 : Symbol(arg1, Decl(extjsSuper.ts, 11, 15))
+>arg2 : Symbol(arg2, Decl(extjsSuper.ts, 11, 28))
+        }
+    }
+}
+

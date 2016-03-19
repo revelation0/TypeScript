@@ -1,0 +1,9 @@
+=== tests/cases/compiler/extjsClass.ts ===
+namespace Test {
+>Test : typeof Test
+
+    export class TestClass {
+>TestClass : TestClass
+    }
+}
+
