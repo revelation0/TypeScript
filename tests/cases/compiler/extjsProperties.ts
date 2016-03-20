@@ -12,5 +12,10 @@ namespace Test {
         }
         set secondProp(prop: number) {
         }
+        static get staticProp(): string {
+            return "static";
+        }
+        static set staticProp(prop: string) {
+        }
     }
 }

@@ -32,7 +32,7 @@ var Test;
         },
     });
     var TestClass = Ext.define('Test.TestClass', {
-        extend: 'BaseClass',
+        extend: BaseClass,
         constructor: function () {
             Test.TestClass.superclass.constructor.call(this);
         },

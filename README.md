@@ -31,11 +31,6 @@ To use simply target the "extjs" module type:
 
 ```node path/to/this/tsc.js -m extjs <source>```
 
-##Known Issues
-
-  * Classes not in modules will not be emitted correctly. Classes in the global scope do not contain the export flag
-   even if they are defined that way.
-
 ##Compatability
 
 This project is compatible with Typescript 1.8 and ExtJS 5.

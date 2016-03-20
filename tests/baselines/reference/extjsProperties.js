@@ -11,6 +11,11 @@ namespace Test {
         }
         set secondProp(prop: number) {
         }
+        static get staticProp(): string {
+            return "static";
+        }
+        static set staticProp(prop: string) {
+        }
     }
 }
 
@@ -23,6 +28,24 @@ var Test;
         Object.defineProperty(TestClass.prototype, "testProp", {
             get: function () {
                 return "testprop";
+            },
+            set: function (prop) {
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(TestClass.prototype, "secondProp", {
+            get: function () {
+                return 2;
+            },
+            set: function (prop) {
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(TestClass, "staticProp", {
+            get: function () {
+                return "static";
             },
             set: function (prop) {
             },

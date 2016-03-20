@@ -8208,9 +8208,9 @@ const _super = (function (geti, seti) {
                 const baseTypeNode = getClassExtendsHeritageClauseElement(node);
                 writeLine();
                 if (baseTypeNode) {
-                    write("extend: '");
+                    write("extend: ");
                     emit(baseTypeNode.expression);
-                    write("',");
+                    write(",");
                     writeLine();
                 }
                 const saveTempFlags = tempFlags;
@@ -8322,7 +8322,7 @@ const _super = (function (geti, seti) {
                     switch (member.kind) {
                         case SyntaxKind.GetAccessor:
                         case SyntaxKind.SetAccessor:
-                            return members.push(member);
+                            members.push(member);
                     }
                 });
                 if (members.length > 0) {
